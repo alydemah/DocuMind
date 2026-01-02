@@ -1,0 +1,27 @@
+{
+  "name": "documind",
+  "private": true,
+  "scripts": {
+    "dev": "turbo dev",
+    "dev:web": "turbo dev --filter=@documind/web",
+    "dev:api": "turbo dev --filter=@documind/api",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "type-check": "turbo type-check",
+    "test": "turbo test",
+    "test:e2e": "turbo test:e2e",
+    "clean": "turbo clean",
+    "docker:build": "turbo docker:build",
+    "db:migrate": "cd apps/api && uv run alembic upgrade head",
+    "db:generate": "cd apps/api && uv run alembic revision --autogenerate -m",
+    "format": "prettier --write \"**/*.{ts,tsx,vue,md,json}\""
+  },
+  "devDependencies": {
+    "turbo": "^2",
+    "prettier": "^3"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20"
+  }
+}
