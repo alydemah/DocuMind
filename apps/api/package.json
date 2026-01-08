@@ -1,0 +1,15 @@
+{
+  "name": "@documind/api",
+  "private": true,
+  "scripts": {
+    "dev": "uv run uvicorn app.main:app --reload --port 8000",
+    "build": "echo 'Python build handled by Docker'",
+    "lint": "uv run ruff check src/",
+    "lint:fix": "uv run ruff check --fix src/",
+    "format": "uv run ruff format src/",
+    "type-check": "uv run mypy src/",
+    "test": "uv run pytest --cov=src/app --cov-report=xml",
+    "test:watch": "uv run pytest --watch",
+    "clean": "rm -rf __pycache__ .pytest_cache .mypy_cache .ruff_cache dist/ *.egg-info"
+  }
+}
