@@ -2,6 +2,7 @@ import logging
 
 import redis
 from fastapi import APIRouter, Depends
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -32,7 +33,7 @@ async def health_check(
     services = ServiceHealth()
 
     try:
-        await db.execute("SELECT 1")
+        await db.execute(text("SELECT 1"))
         services.database = True
     except Exception:
         services.database = False
