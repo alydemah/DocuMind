@@ -1,0 +1,4 @@
+{
+  "extends": "@documind/tsconfig/node.json",
+  "include": ["vite.config.ts"]
+}
