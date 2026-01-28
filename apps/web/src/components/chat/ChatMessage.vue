@@ -1,6 +1,6 @@
 <template>
   <div
-    class="flex gap-4"
+    class="flex gap-3"
     :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
   >
     <!-- Avatar -->
