@@ -1,0 +1,23 @@
+version: "3.9"
+
+# Development overrides - use with:
+# docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  backend:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    volumes:
+      - ./apps/api/src:/app/src
+      - upload_data:/data/uploads
+    environment:
+      - APP_ENV=development
+      - APP_LOG_LEVEL=debug
+
+  worker:
+    volumes:
+      - ./apps/api/src:/app/src
+    environment:
+      - APP_ENV=development
