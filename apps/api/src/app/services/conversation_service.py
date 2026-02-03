@@ -20,7 +20,7 @@ class ConversationService:
         self.db.add(conversation)
         await self.db.commit()
         await self.db.refresh(conversation)
-        return conversation
+        return await self.get_conversation(conversation.id)
 
     async def get_conversation(self, conversation_id: uuid.UUID) -> Conversation | None:
         result = await self.db.execute(
@@ -35,7 +35,9 @@ class ConversationService:
         total = count_result.scalar() or 0
 
         result = await self.db.execute(
-            select(Conversation).order_by(Conversation.updated_at.desc())
+            select(Conversation)
+            .options(selectinload(Conversation.messages))
+            .order_by(Conversation.updated_at.desc())
         )
         conversations = list(result.scalars().all())
         return conversations, total
