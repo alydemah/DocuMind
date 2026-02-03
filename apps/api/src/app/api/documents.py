@@ -1,3 +1,4 @@
+import logging
 import uuid
 from pathlib import Path
 
@@ -16,6 +17,7 @@ from app.schemas import (
 from app.services.document_service import DocumentService
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/upload", response_model=DocumentUploadResponse)
@@ -187,7 +189,11 @@ async def delete_document(
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    vector_store.delete_by_document(str(document_id))
+    try:
+        vector_store.delete_by_document(str(document_id))
+    except Exception as e:
+        logger.warning(f"Failed to delete vectors for document {document_id}: {e}")
+
     await service.delete_document(document_id)
 
     return {"message": "Document deleted successfully"}

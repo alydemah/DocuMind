@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class DocumentResponse(BaseModel):
@@ -15,7 +15,7 @@ class DocumentResponse(BaseModel):
     chunk_count: int
     page_count: int
     error_message: str | None = None
-    metadata: dict = {}
+    metadata: dict = Field(default={}, validation_alias="metadata_")
     created_at: datetime
     updated_at: datetime
 
@@ -43,7 +43,7 @@ class ChunkResponse(BaseModel):
     content: str
     page_number: int | None = None
     token_count: int | None = None
-    metadata: dict = {}
+    metadata: dict = Field(default={}, validation_alias="metadata_")
     created_at: datetime
 
     model_config = {"from_attributes": True}
