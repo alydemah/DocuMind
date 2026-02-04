@@ -1,13 +1,16 @@
 import logging
+import traceback
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.db.session import async_session_maker
 from app.dependencies import get_db, get_vector_store
 from app.db.vector_store import VectorStore
+from app.rag.pipeline import RAGPipeline
 from app.schemas import (
     ChunkResponse,
     DocumentListResponse,
@@ -20,9 +23,54 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+async def process_document_task(document_id: uuid.UUID, file_path: Path, file_type: str, document_name: str):
+    """Background task to process an uploaded document through the RAG pipeline."""
+    logger.info(f"[PROCESS] Starting processing for document {document_id} ({document_name})")
+
+    async with async_session_maker() as db:
+        service = DocumentService(db)
+        try:
+            await service.update_status(document_id, "processing")
+            logger.info(f"[PROCESS] Status set to 'processing' for {document_name}")
+
+            vector_store = get_vector_store()
+            pipeline = RAGPipeline(vector_store)
+
+            logger.info(f"[PROCESS] Running ingestion pipeline for {document_name}...")
+            result = pipeline.ingest_document(
+                file_path=file_path,
+                file_type=file_type,
+                document_id=str(document_id),
+                document_name=document_name,
+            )
+
+            logger.info(f"[PROCESS] Ingestion complete: {result['chunk_count']} chunks, {result['page_count']} pages")
+
+            await service.store_chunks(document_id, result["chunks"])
+            logger.info(f"[PROCESS] Stored {result['chunk_count']} chunks in database")
+
+            await service.update_status(
+                document_id,
+                status="ready",
+                chunk_count=result["chunk_count"],
+                page_count=result["page_count"],
+            )
+            logger.info(f"[PROCESS] Document {document_name} is ready!")
+
+        except Exception as e:
+            logger.error(f"[PROCESS] Failed to process {document_name}: {e}")
+            logger.error(f"[PROCESS] Traceback: {traceback.format_exc()}")
+            await service.update_status(
+                document_id,
+                status="failed",
+                error_message=str(e),
+            )
+
+
 @router.post("/upload", response_model=DocumentUploadResponse)
 async def upload_document(
     file: UploadFile = File(...),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     db: AsyncSession = Depends(get_db),
 ):
     if not file.filename:
@@ -65,7 +113,9 @@ async def upload_document(
         file_hash=file_hash,
     )
 
-    # TODO: trigger background ingestion task
+    logger.info(f"[UPLOAD] Document saved: {doc.id} ({file.filename}), scheduling processing...")
+    background_tasks.add_task(process_document_task, doc.id, file_path, ext, file.filename)
+
     return DocumentUploadResponse(
         id=doc.id,
         name=doc.name,
@@ -197,6 +247,31 @@ async def delete_document(
     await service.delete_document(document_id)
 
     return {"message": "Document deleted successfully"}
+
+
+@router.post("/{document_id}/process")
+async def process_document(
+    document_id: uuid.UUID,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    db: AsyncSession = Depends(get_db),
+):
+    service = DocumentService(db)
+    doc = await service.get_document(document_id)
+
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if doc.status == "ready":
+        return {"message": "Document is already processed", "status": doc.status}
+
+    file_path = settings.upload_path / str(document_id) / doc.original_name
+    if not file_path.exists():
+        raise HTTPException(status_code=400, detail=f"File not found on disk: {file_path}")
+
+    logger.info(f"[PROCESS] Manual trigger for document {document_id} ({doc.name})")
+    background_tasks.add_task(process_document_task, document_id, file_path, doc.file_type, doc.name)
+
+    return {"message": "Processing started", "status": "processing"}
 
 
 @router.get("/{document_id}/chunks", response_model=list[ChunkResponse])

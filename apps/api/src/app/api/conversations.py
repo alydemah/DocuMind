@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -19,6 +20,7 @@ from app.schemas.conversation import TokenUsage
 from app.services.conversation_service import ConversationService
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post("", response_model=ConversationResponse)
@@ -83,6 +85,9 @@ async def ask_question(
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
+    logger.info(f"[ASK] Question: {body.question[:100]}...")
+    logger.info(f"[ASK] Options: {body.options}")
+
     await service.add_message(
         conversation_id=conversation_id,
         role="user",
@@ -90,15 +95,22 @@ async def ask_question(
     )
 
     chat_history = await service.get_chat_history(conversation_id)
+    logger.info(f"[ASK] Chat history: {len(chat_history)} messages")
 
-    pipeline = RAGPipeline(vector_store)
-    result = pipeline.query(
-        question=body.question,
-        chat_history=chat_history,
-        top_k=body.options.get("top_k"),
-        score_threshold=body.options.get("score_threshold"),
-        document_filter=body.options.get("document_filter"),
-    )
+    try:
+        pipeline = RAGPipeline(vector_store)
+        logger.info("[ASK] Running RAG query pipeline...")
+        result = pipeline.query(
+            question=body.question,
+            chat_history=chat_history,
+            top_k=body.options.get("top_k"),
+            score_threshold=body.options.get("score_threshold"),
+            document_filter=body.options.get("document_filter"),
+        )
+        logger.info(f"[ASK] Got answer ({len(result['answer'])} chars), {len(result['sources'])} sources, model: {result['model_used']}")
+    except Exception as e:
+        logger.error(f"[ASK] RAG pipeline error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"RAG pipeline error: {str(e)}")
 
     await service.add_message(
         conversation_id=conversation_id,
