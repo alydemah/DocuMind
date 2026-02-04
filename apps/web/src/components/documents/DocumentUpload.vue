@@ -27,7 +27,7 @@
       <button
         type="button"
         class="font-medium text-brand-600 hover:text-brand-500"
-        @click="$refs.fileInput.click()"
+        @click="fileInput?.click()"
       >
         Click to upload
       </button>
