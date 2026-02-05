@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     rag_chunk_size: int = 1000
     rag_chunk_overlap: int = 200
     rag_top_k: int = 5
-    rag_score_threshold: float = 0.7
+    rag_score_threshold: float = 0.2
 
     # Storage
     upload_dir: str = "/data/uploads"
