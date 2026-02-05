@@ -1,3 +1,5 @@
+import logging
+
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import (
     Distance,
@@ -10,6 +12,8 @@ from qdrant_client.http.models import (
 
 from app.config import settings
 
+logger = logging.getLogger(__name__)
+
 
 class VectorStore:
     def __init__(self, host: str, port: int, collection_name: str):
@@ -21,6 +25,7 @@ class VectorStore:
         exists = any(c.name == self.collection_name for c in collections)
 
         if not exists:
+            logger.info(f"Creating Qdrant collection: {self.collection_name}")
             self.client.create_collection(
                 collection_name=self.collection_name,
                 vectors_config=VectorParams(
@@ -41,6 +46,7 @@ class VectorStore:
             for id_, vector, payload in zip(ids, vectors, payloads)
         ]
         self.client.upsert(collection_name=self.collection_name, points=points)
+        logger.info(f"Upserted {len(points)} vectors to {self.collection_name}")
 
     def search(
         self,
@@ -54,7 +60,7 @@ class VectorStore:
         query_filter = None
         if document_filter:
             query_filter = Filter(
-                must=[
+                should=[
                     FieldCondition(
                         key="document_id",
                         match=MatchValue(value=doc_id),
@@ -63,26 +69,32 @@ class VectorStore:
                 ]
             )
 
-        results = self.client.search(
+        logger.info(f"Querying Qdrant: top_k={top_k}, threshold={score_threshold}, filter={document_filter}")
+
+        response = self.client.query_points(
             collection_name=self.collection_name,
-            query_vector=query_vector,
+            query=query_vector,
             limit=top_k,
             score_threshold=score_threshold,
             query_filter=query_filter,
+            with_payload=True,
         )
 
-        return [
-            {
-                "id": str(hit.id),
-                "score": hit.score,
-                "document_id": hit.payload.get("document_id", ""),
-                "document_name": hit.payload.get("document_name", ""),
-                "chunk_index": hit.payload.get("chunk_index", 0),
-                "page_number": hit.payload.get("page_number"),
-                "content": hit.payload.get("content", ""),
-            }
-            for hit in results
-        ]
+        results = []
+        for point in response.points:
+            payload = point.payload or {}
+            results.append({
+                "id": str(point.id),
+                "score": point.score,
+                "document_id": payload.get("document_id", ""),
+                "document_name": payload.get("document_name", ""),
+                "chunk_index": payload.get("chunk_index", 0),
+                "page_number": payload.get("page_number"),
+                "content": payload.get("content", ""),
+            })
+
+        logger.info(f"Qdrant returned {len(results)} results")
+        return results
 
     def delete_by_document(self, document_id: str):
         self.client.delete(
