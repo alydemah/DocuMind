@@ -1,23 +1,107 @@
-version: "3.9"
-
-# Development overrides - use with:
-# docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+# Development compose - builds from local source
+# Usage: docker compose -f docker-compose.dev.yml up
 
 services:
+  # --- Frontend (dev with hot reload) ---
+  frontend:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    restart: unless-stopped
+
+  # --- Backend API (dev with reload) ---
   backend:
     build:
       context: ./apps/api
       dockerfile: Dockerfile
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    ports:
+      - "8000:8000"
+    env_file: .env
     volumes:
       - ./apps/api/src:/app/src
       - upload_data:/data/uploads
     environment:
       - APP_ENV=development
       - APP_LOG_LEVEL=debug
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    restart: unless-stopped
 
+  # --- Background Worker ---
   worker:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    command: ["celery", "-A", "app.workers", "worker", "--loglevel=info"]
+    env_file: .env
     volumes:
       - ./apps/api/src:/app/src
+      - upload_data:/data/uploads
     environment:
       - APP_ENV=development
+    depends_on:
+      - backend
+      - redis
+    restart: unless-stopped
+
+  # --- PostgreSQL ---
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-documind}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # --- Redis ---
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # --- Qdrant Vector Store ---
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__GRPC_PORT: 6334
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  qdrant_data:
+  upload_data:
