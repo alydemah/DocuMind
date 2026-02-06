@@ -43,7 +43,7 @@ class VectorStore:
         self.ensure_collection()
         points = [
             PointStruct(id=id_, vector=vector, payload=payload)
-            for id_, vector, payload in zip(ids, vectors, payloads)
+            for id_, vector, payload in zip(ids, vectors, payloads, strict=True)
         ]
         self.client.upsert(collection_name=self.collection_name, points=points)
         logger.info(f"Upserted {len(points)} vectors to {self.collection_name}")
@@ -69,7 +69,10 @@ class VectorStore:
                 ]
             )
 
-        logger.info(f"Querying Qdrant: top_k={top_k}, threshold={score_threshold}, filter={document_filter}")
+        logger.info(
+            f"Querying Qdrant: top_k={top_k}, threshold={score_threshold}, "
+            f"filter={document_filter}"
+        )
 
         response = self.client.query_points(
             collection_name=self.collection_name,

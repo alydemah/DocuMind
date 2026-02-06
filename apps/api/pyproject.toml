@@ -34,6 +34,7 @@ dev = [
     "httpx>=0.28",
     "ruff>=0.9",
     "mypy>=1.14",
+    "aiosqlite>=0.20",
 ]
 local = [
     "sentence-transformers>=3.3",
@@ -53,6 +54,7 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "SIM", "ASYNC"]
+ignore = ["B008"]  # Allow Depends() in FastAPI route signatures
 
 [tool.mypy]
 python_version = "3.12"

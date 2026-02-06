@@ -9,7 +9,7 @@ from app.rag.chunker import DocumentChunker
 from app.rag.embedder import DocumentEmbedder
 from app.rag.extractors import get_extractor
 from app.rag.generator import AnswerGenerator
-from app.rag.retriever import DocumentRetriever, RetrievedChunk
+from app.rag.retriever import DocumentRetriever
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +101,8 @@ class RAGPipeline:
 
         if not chunks:
             return {
-                "answer": "I don't have enough information in the uploaded documents to answer this.",
+                "answer": "I don't have enough information in the uploaded "
+                "documents to answer this.",
                 "sources": [],
                 "model_used": settings.llm_model,
                 "tokens_used": {"prompt": 0, "completion": 0, "total": 0},

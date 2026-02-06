@@ -3,13 +3,13 @@ import traceback
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.db.session import async_session_maker
-from app.dependencies import get_db, get_vector_store
 from app.db.vector_store import VectorStore
+from app.dependencies import get_db, get_vector_store
 from app.rag.pipeline import RAGPipeline
 from app.schemas import (
     ChunkResponse,
@@ -23,7 +23,9 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-async def process_document_task(document_id: uuid.UUID, file_path: Path, file_type: str, document_name: str):
+async def process_document_task(
+    document_id: uuid.UUID, file_path: Path, file_type: str, document_name: str,
+):
     """Background task to process an uploaded document through the RAG pipeline."""
     logger.info(f"[PROCESS] Starting processing for document {document_id} ({document_name})")
 
@@ -44,7 +46,10 @@ async def process_document_task(document_id: uuid.UUID, file_path: Path, file_ty
                 document_name=document_name,
             )
 
-            logger.info(f"[PROCESS] Ingestion complete: {result['chunk_count']} chunks, {result['page_count']} pages")
+            logger.info(
+                f"[PROCESS] Ingestion complete: {result['chunk_count']} chunks, "
+                f"{result['page_count']} pages"
+            )
 
             await service.store_chunks(document_id, result["chunks"])
             logger.info(f"[PROCESS] Stored {result['chunk_count']} chunks in database")
@@ -91,8 +96,7 @@ async def upload_document(
     upload_dir.mkdir(parents=True, exist_ok=True)
     file_path = upload_dir / file.filename
 
-    with open(file_path, "wb") as f:
-        f.write(content)
+    file_path.write_bytes(content)
 
     file_hash = service.compute_file_hash(file_path)
 
@@ -157,8 +161,7 @@ async def bulk_upload_documents(
         upload_dir.mkdir(parents=True, exist_ok=True)
         file_path = upload_dir / file.filename
 
-        with open(file_path, "wb") as f:
-            f.write(content)
+        file_path.write_bytes(content)
 
         file_hash = service.compute_file_hash(file_path)
 
@@ -269,7 +272,9 @@ async def process_document(
         raise HTTPException(status_code=400, detail=f"File not found on disk: {file_path}")
 
     logger.info(f"[PROCESS] Manual trigger for document {document_id} ({doc.name})")
-    background_tasks.add_task(process_document_task, document_id, file_path, doc.file_type, doc.name)
+    background_tasks.add_task(
+        process_document_task, document_id, file_path, doc.file_type, doc.name,
+    )
 
     return {"message": "Processing started", "status": "processing"}
 

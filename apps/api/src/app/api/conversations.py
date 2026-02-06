@@ -4,8 +4,8 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies import get_db, get_vector_store
 from app.db.vector_store import VectorStore
+from app.dependencies import get_db, get_vector_store
 from app.rag.pipeline import RAGPipeline
 from app.schemas import (
     AskRequest,
@@ -13,7 +13,6 @@ from app.schemas import (
     ConversationCreate,
     ConversationListResponse,
     ConversationResponse,
-    MessageResponse,
     SourceResponse,
 )
 from app.schemas.conversation import TokenUsage
@@ -107,10 +106,15 @@ async def ask_question(
             score_threshold=body.options.get("score_threshold"),
             document_filter=body.options.get("document_filter"),
         )
-        logger.info(f"[ASK] Got answer ({len(result['answer'])} chars), {len(result['sources'])} sources, model: {result['model_used']}")
+        logger.info(
+            f"[ASK] Got answer ({len(result['answer'])} chars), "
+            f"{len(result['sources'])} sources, model: {result['model_used']}"
+        )
     except Exception as e:
         logger.error(f"[ASK] RAG pipeline error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"RAG pipeline error: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"RAG pipeline error: {e}"
+        ) from e
 
     await service.add_message(
         conversation_id=conversation_id,

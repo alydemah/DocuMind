@@ -145,7 +145,10 @@ class DocumentService:
         ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
 
         if ext not in settings.allowed_extensions:
-            return False, f"File type .{ext} is not supported. Allowed: {settings.allowed_file_types}"
+            return False, (
+                f"File type .{ext} is not supported. "
+                f"Allowed: {settings.allowed_file_types}"
+            )
 
         if file_size > settings.max_file_size_bytes:
             return False, f"File size exceeds maximum of {settings.max_file_size_mb}MB"

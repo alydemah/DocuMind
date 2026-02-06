@@ -1,4 +1,4 @@
-import json
+import contextlib
 import logging
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -27,10 +27,8 @@ class ConnectionManager:
     async def broadcast(self, channel: str, message: dict):
         if channel in self.active_connections:
             for connection in self.active_connections[channel]:
-                try:
+                with contextlib.suppress(Exception):
                     await connection.send_json(message)
-                except Exception:
-                    pass
 
 
 manager = ConnectionManager()

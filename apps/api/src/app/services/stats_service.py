@@ -38,7 +38,7 @@ class StatsService:
     def _get_storage_size(self, path: Path) -> int:
         total = 0
         if path.exists():
-            for dirpath, dirnames, filenames in os.walk(path):
+            for dirpath, _dirnames, filenames in os.walk(path):
                 for f in filenames:
                     fp = os.path.join(dirpath, f)
                     total += os.path.getsize(fp)
